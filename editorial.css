@@ -58,3 +58,20 @@ input, select, textarea { background: #14151a; border-color: #696367; color: var
 .outline, footer { border-color: #645950; }
 .skip { background: #19191d; }
 .book img { box-shadow: 0 18px 42px #000b, 0 0 42px #e5ad691a; }
+
+.author-photo {
+    background: var(--paper);
+    border-radius: 12px;
+    box-shadow: 0 0 28px 3px rgb(239 196 137 / 16%);
+    overflow: hidden;
+}
+.author-photo img {
+    display: block;
+    max-width: 100%;
+    mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent),
+                linear-gradient(to bottom, transparent, black 5%, black 92%, transparent);
+    mask-composite: intersect;
+}
+@media (max-width: 760px) {
+    .author-photo { width: min(100%, 400px); }
+}
