@@ -1,18 +1,58 @@
-const menu = document.querySelector('#menu');
-function closeMenu() { menu.setAttribute('aria-expanded', 'false'); }
-menu.addEventListener('click', () => menu.setAttribute('aria-expanded', String(menu.getAttribute('aria-expanded') !== 'true')));
-document.querySelector('#links').addEventListener('click', closeMenu);
-document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && menu.getAttribute('aria-expanded') === 'true') { closeMenu(); menu.focus(); }
+// Conserva los enlaces compartidos antes de la navegación por páginas.
+const oldSections = {
+    '#sinopsis': '/libros/por-si-alguien-me-escucha/', '#trailer': '/trailer/',
+    '#autora': '/autora/', '#lectores': '/lectores/', '#resenas': '/resenas/', '#aurea': '/aurea/'
+};
+function openLegacySection() {
+    const destination = oldSections[location.hash];
+    if (location.pathname === '/' && destination) location.replace(destination + location.search);
+}
+openLegacySection();
+window.addEventListener('hashchange', openLegacySection);
+
+document.querySelector('#play-trailer')?.addEventListener('click', event => {
+    event.preventDefault();
+    const player = document.createElement('iframe');
+    player.src = 'https://www.youtube.com/embed/ciTFFUCd5X0?autoplay=1&playsinline=1&cc_load_policy=1';
+    player.title = 'Tráiler de Por si alguien me escucha';
+    player.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    player.allowFullscreen = true;
+    player.referrerPolicy = 'strict-origin-when-cross-origin';
+    event.currentTarget.replaceWith(player);
+    player.focus();
+});
+
+// Eventos de salida para el contenedor de analítica del dominio.
+const destinations = [
+    ['read.amazon.com', 'leer_muestra'], ['www.amazon.com', 'ver_libro_amazon'],
+    ['/media/guia-de-lectura.pdf', 'descargar_guia'], ['www.whatsapp.com', 'abrir_canal']
+];
+const campaign = new URLSearchParams(location.search);
+try {
+    if (campaign.has('utm_source')) {
+        sessionStorage.setItem('campana-lectura', JSON.stringify(Object.fromEntries(
+            ['utm_source','utm_medium','utm_campaign'].map(key => [key, campaign.get(key)])
+        )));
+    }
+} catch { /* Almacenamiento opcional. */ }
+document.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    const match = destinations.find(([key]) => key === link.hostname || key === link.pathname);
+    if (!match) return;
+    let attribution = {};
+    try { attribution = JSON.parse(sessionStorage.getItem('campana-lectura')) || {}; } catch { /* Opcional. */ }
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({event: match[1], pagina: location.pathname, ...attribution});
 });
 const cover = document.querySelector('#cover');
-document.querySelector('#flip').addEventListener('click', event => {
-    const showBack = cover.getAttribute('src') === 'media/cubierta.webp';
-    cover.src = showBack ? 'media/contracubierta.webp' : 'media/cubierta.webp';
+document.querySelector('#flip')?.addEventListener('click', event => {
+    const showBack = cover.getAttribute('src') === '/media/cubierta.webp';
+    cover.src = showBack ? '/media/contracubierta.webp' : '/media/cubierta.webp';
     cover.alt = showBack ? 'Contracubierta con la sinopsis de la novela' : 'Cubierta de Por si alguien me escucha';
     event.currentTarget.textContent = showBack ? 'Ver cubierta ↻' : 'Ver contracubierta ↻';
 });
-document.querySelector('#key-form').addEventListener('submit', event => {
+document.querySelector('#key-form')?.addEventListener('submit', event => {
     event.preventDefault();
     const correct = ['8','ocho','eight'].includes(event.target.elements.clave.value.trim().toLowerCase());
     document.querySelector('#reward').hidden = !correct;
@@ -21,6 +61,9 @@ document.querySelector('#key-form').addEventListener('submit', event => {
 const reviewUrl = 'https://script.google.com/macros/s/AKfycbzUMsQTqgP8jq6aIp1EHtHX1n7IKTX-e1_n2W5wI921eRvdVmxbP-l1C7RV1aZvkZXHyw/exec';
 async function loadReviews() {
     const state = document.querySelector('#review-state');
+    const retry = document.querySelector('#retry');
+    retry.hidden = true;
+    state.textContent = 'Cargando reseñas…';
     try {
         const response = await fetch(reviewUrl, {signal: AbortSignal.timeout(12000)});
         if (!response.ok) throw Error();
@@ -40,10 +83,13 @@ async function loadReviews() {
             container.append(card);
         }
         state.textContent = reviews.length ? '' : 'Todavía no hay reseñas publicadas. ¿Ya leíste la novela?';
-    } catch { state.textContent = 'Las reseñas no están disponibles en este momento.'; }
+    } catch { retry.hidden = false; state.textContent = 'Las reseñas no están disponibles en este momento.'; }
 }
-loadReviews();
-document.querySelector('#review-form').addEventListener('submit', async event => {
+if (document.querySelector('#reviews')) {
+    loadReviews();
+    document.querySelector('#retry').addEventListener('click', loadReviews);
+}
+document.querySelector('#review-form')?.addEventListener('submit', async event => {
     event.preventDefault();
     const form = event.target;
     const button = form.querySelector('button');
